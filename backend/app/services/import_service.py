@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -33,6 +34,24 @@ def _text(value: object) -> str:
     if value is None:
         return ""
     return str(value).strip()
+
+
+# A bare number: integer or decimal, optional sign. Used to spot metadata rows.
+_NUMERIC_RE = re.compile(r"[+-]?\d+(?:\.\d+)?")
+
+
+def _looks_like_metadata_value(value: str) -> bool:
+    """True when ``value`` is a purely numeric cell.
+
+    SAP-style exports place a metadata band immediately under the header row —
+    field codes, field lengths and a field column-number row. In that band the
+    EQUIPMENT DESCRIPTION column holds a bare number (e.g. ``6``), whereas a
+    real equipment description is always textual (``BALL VALVE``). Rejecting
+    purely numeric equipment values drops the metadata row without touching any
+    legitimate tag: descriptions that merely *contain* digits (``3 WAY VALVE``)
+    are unaffected.
+    """
+    return bool(_NUMERIC_RE.fullmatch(value.strip()))
 
 
 def import_rows(db: Session, job: WorkbookJob, *, rerun: bool = False) -> ImportStats:
@@ -76,6 +95,12 @@ def import_rows(db: Session, job: WorkbookJob, *, rerun: bool = False) -> Import
 
             # Only real tag records: both tag and equipment must be present.
             if not tag_raw or not equip_raw:
+                continue
+
+            # Skip the SAP metadata band (field column-number / length rows) that
+            # sits just under the header: a real equipment description is textual,
+            # so a purely numeric value in that column is never a tag record.
+            if _looks_like_metadata_value(equip_raw):
                 continue
 
             tag_rows += 1

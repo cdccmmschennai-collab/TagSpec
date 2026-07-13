@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, apiErrorMessage } from '../lib/api'
-import type { ClaimResponse, EquipmentAttribute, TagRow } from '../lib/types'
+import { api, apiErrorCode, apiErrorMessage } from '../lib/api'
+import type { EquipmentAttribute, TagRow } from '../lib/types'
+import { Button } from '../components/ui/primitives'
+import { useToast } from '../components/ui/useToast'
+import { StatusBadge } from '../components/StatusBadge'
+import { AlertIcon, CheckIcon, LockIcon } from '../components/ui/icons'
 
 interface Props {
-  claim: ClaimResponse
+  tag: TagRow
+  attributes: EquipmentAttribute[]
   jobId: string
-  onDone: () => void
+  currentUserId: string
+  onCompleted: () => void
   onReleased: () => void
 }
 
-// Live preview mirrors the backend formatter, but the backend remains
-// authoritative for the saved value.
+// Live preview mirrors the backend formatter; the backend remains authoritative.
 function buildPreview(attributes: EquipmentAttribute[], values: Record<string, string>): string {
   return [...attributes]
     .sort((a, b) => a.display_order - b.display_order)
@@ -24,21 +29,21 @@ function buildPreview(attributes: EquipmentAttribute[], values: Record<string, s
     .join(',')
 }
 
-export function TagEntryForm({ claim, jobId, onDone, onReleased }: Props) {
+export function TagEntryForm({ tag: initialTag, attributes, jobId, currentUserId, onCompleted, onReleased }: Props) {
   const queryClient = useQueryClient()
-  const { attributes } = claim
-  const [tag, setTag] = useState<TagRow>(claim.tag)
+  const toast = useToast()
+  const [tag, setTag] = useState<TagRow>(initialTag)
   const [values, setValues] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
     for (const a of attributes) {
       const key = a.attribute_name.toUpperCase()
-      initial[key] = claim.tag.attribute_values_json?.[key] ?? ''
+      initial[key] = initialTag.attribute_values_json?.[key] ?? ''
     }
     return initial
   })
-  const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [conflict, setConflict] = useState<string | null>(null)
 
+  const ownedByMe = tag.claimed_by === currentUserId
   const rowVersionRef = useRef(tag.row_version)
   rowVersionRef.current = tag.row_version
 
@@ -68,95 +73,132 @@ export function TagEntryForm({ claim, jobId, onDone, onReleased }: Props) {
       return { data, action }
     },
     onSuccess: ({ data, action }) => {
-      setError(null)
+      setConflict(null)
       setTag(data)
       void queryClient.invalidateQueries({ queryKey: ['tags', jobId] })
+      void queryClient.invalidateQueries({ queryKey: ['job-tags', jobId] })
       void queryClient.invalidateQueries({ queryKey: ['equipment-descriptions', jobId] })
       if (action === 'complete') {
-        onDone()
+        toast.success('Tag completed', `${data.tag_number} saved. Pick the next tag to continue.`)
+        onCompleted()
       } else {
-        setNotice('Draft saved.')
+        toast.success('Draft saved', `${data.tag_number} kept as a draft.`)
       }
     },
-    onError: (err) => setError(apiErrorMessage(err)),
+    onError: (err) => {
+      const code = apiErrorCode(err)
+      if (code === 'STALE_TAG_VERSION' || code === 'TAG_CLAIM_EXPIRED' || code === 'TAG_NOT_OWNED') {
+        setConflict(apiErrorMessage(err))
+      }
+      toast.error('Could not save', apiErrorMessage(err))
+    },
   })
 
   const release = useMutation({
     mutationFn: async () => api.post(`/workbooks/tags/${tag.id}/release`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tags', jobId] })
+      void queryClient.invalidateQueries({ queryKey: ['job-tags', jobId] })
       void queryClient.invalidateQueries({ queryKey: ['equipment-descriptions', jobId] })
+      toast.info('Tag released', `${tag.tag_number} is available again.`)
       onReleased()
     },
-    onError: (err) => setError(apiErrorMessage(err)),
+    onError: (err) => toast.error('Could not release', apiErrorMessage(err)),
   })
 
-  // Ctrl/Cmd+Enter → Complete and Next.
+  // Ctrl/Cmd+Enter → Complete & Next.
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && missingRequired.length === 0) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && missingRequired.length === 0 && !commaProblem) {
       save.mutate('complete')
     }
   }
 
   return (
-    <div className="card entry-form" onKeyDown={onKeyDown}>
+    <div className="panel entry-panel" onKeyDown={onKeyDown}>
       <div className="entry-head">
-        <div>
-          <h2>{tag.tag_number}</h2>
-          <div className="muted small">
-            {tag.equipment_description} · Excel row {tag.excel_row_number} · v{tag.row_version}
+        <div className="stack" style={{ gap: '0.3rem' }}>
+          <div className="row gap-sm wrap">
+            <span className="tagno">{tag.tag_number}</span>
+            <StatusBadge status={tag.status} />
+            <span className="chip"><LockIcon size={12} /> {ownedByMe ? 'Claimed by you' : 'Claimed by another user'}</span>
           </div>
+          <div className="muted small">{tag.equipment_description} · Excel row {tag.excel_row_number} · v{tag.row_version}</div>
         </div>
-        <button className="btn btn-ghost" onClick={() => release.mutate()} disabled={release.isPending}>
-          Release Tag
-        </button>
+        <Button variant="ghost" onClick={() => release.mutate()} loading={release.isPending}>Release Tag</Button>
       </div>
 
-      <div className="attr-grid">
-        {attributes.map((a) => {
-          const key = a.attribute_name.toUpperCase()
-          const value = values[key] ?? ''
-          const invalid = value.includes(',')
-          const requiredMissing = a.is_required && !value.trim()
-          return (
-            <label key={a.id} className="attr-field">
-              <span>
-                {a.display_label}
-                {a.is_required && <b className="req"> *</b>}
-              </span>
-              <input
-                value={value}
-                placeholder={a.placeholder ?? ''}
-                aria-invalid={invalid}
-                onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-              />
-              {invalid && <span className="field-error">Commas are not allowed in a value.</span>}
-              {!invalid && requiredMissing && <span className="field-hint">Required</span>}
-            </label>
-          )
-        })}
+      <div className="entry-body">
+        {conflict && (
+          <div className="alert alert-warn" style={{ marginBottom: '1rem' }}>
+            <AlertIcon size={16} />
+            <div>
+              <div className="strong">This tag changed while you were editing</div>
+              <div className="small">{conflict} — release the tag and re-open it to continue safely.</div>
+            </div>
+          </div>
+        )}
+
+        <div className="attr-grid">
+          {attributes.map((a) => {
+            const key = a.attribute_name.toUpperCase()
+            const value = values[key] ?? ''
+            const invalid = value.includes(',')
+            const requiredMissing = a.is_required && !value.trim()
+            const fieldId = `attr-${a.id}`
+            return (
+              <div key={a.id} className="field">
+                <label className="label" htmlFor={fieldId}>
+                  {a.display_label}
+                  {a.is_required && <b className="req"> *</b>}
+                </label>
+                <input
+                  id={fieldId}
+                  className="input"
+                  value={value}
+                  placeholder={a.placeholder ?? ''}
+                  aria-invalid={invalid}
+                  aria-required={a.is_required}
+                  onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                />
+                {invalid ? (
+                  <span className="field-error">Commas are not allowed in a value.</span>
+                ) : requiredMissing ? (
+                  <span className="field-hint">Required</span>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="preview">
+          <div className="preview-label">Generated Additional Information (preview)</div>
+          <code>{preview || '—'}</code>
+        </div>
       </div>
 
-      <div className="preview">
-        <div className="muted small">Live preview (backend generates the final value)</div>
-        <code>{preview || '—'}</code>
-      </div>
-
-      {error && <div className="alert alert-error">{error}</div>}
-      {notice && <div className="alert alert-success">{notice}</div>}
-
-      <div className="entry-actions">
-        <button className="btn" onClick={() => save.mutate('draft')} disabled={save.isPending || commaProblem}>
-          Save Draft
-        </button>
-        <button
-          className="btn btn-primary"
-          onClick={() => save.mutate('complete')}
-          disabled={save.isPending || missingRequired.length > 0 || commaProblem}
-          title="Ctrl/Cmd + Enter"
-        >
-          Complete and Next
-        </button>
+      <div className="entry-foot">
+        <span className="small muted">
+          {missingRequired.length > 0
+            ? `${missingRequired.length} required field${missingRequired.length > 1 ? 's' : ''} remaining`
+            : commaProblem
+              ? 'Remove commas to save'
+              : 'Ready to complete'}
+        </span>
+        <div className="foot-actions">
+          <Button onClick={() => save.mutate('draft')} loading={save.isPending} disabled={commaProblem}>
+            Save Draft
+          </Button>
+          <Button
+            variant="primary"
+            icon={<CheckIcon size={16} />}
+            onClick={() => save.mutate('complete')}
+            loading={save.isPending}
+            disabled={missingRequired.length > 0 || commaProblem}
+            title="Ctrl/Cmd + Enter"
+          >
+            Complete &amp; Next
+          </Button>
+        </div>
       </div>
     </div>
   )

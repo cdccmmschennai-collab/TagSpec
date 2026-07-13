@@ -1,7 +1,7 @@
 [project]
 name = "equipment-additional-info-backend"
 version = "0.1.0"
-description = "Backend for the Equipment Additional Information Tool"
+description = "Backend for TagSpec — Equipment Attribute Workspace"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 
-export function HealthStatus() {
+export function ApiStatus() {
   const { data, isError, isLoading } = useQuery({
     queryKey: ['health'],
     queryFn: async () => {
@@ -12,12 +12,12 @@ export function HealthStatus() {
   })
 
   const ok = data?.status === 'ok' && !isError
-  const label = isLoading ? 'checking…' : ok ? 'API online' : 'API offline'
-  const color = isLoading ? '#9ca3af' : ok ? '#16a34a' : '#dc2626'
+  const state = isLoading ? 'idle' : ok ? 'ok' : 'bad'
+  const label = isLoading ? 'Checking API…' : ok ? 'API online' : 'API offline'
 
   return (
-    <span className="health" title="Backend API health">
-      <span className="dot" style={{ background: color }} />
+    <span className="api-status" title="Backend API health" role="status">
+      <span className={`dot ${state}`} aria-hidden="true" />
       {label}
     </span>
   )

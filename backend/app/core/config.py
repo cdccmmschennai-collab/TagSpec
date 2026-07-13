@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     )
 
     app_env: str = "local"
-    app_name: str = "Equipment Additional Information Tool"
+    app_name: str = "TagSpec"
     log_level: str = "INFO"
 
     # Database — a full URL wins; otherwise it is assembled from parts.

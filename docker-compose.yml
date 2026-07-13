@@ -4,6 +4,15 @@
 # collide with any other Postgres already running on this machine (e.g. an
 # existing CMMS on 5433). Only the database is defined here for local dev; the
 # backend and frontend run on the host during development.
+#
+# NOTE: The Compose project name is pinned to "equipment-additional-info" so it
+# stays stable regardless of the folder name (the directory was renamed to
+# "tagspec" for branding). Without this pin, Compose would derive the project
+# name from the new folder and look for a different volume, silently creating a
+# new empty database. Pinning it keeps the existing container (eai_database) and
+# data volume (equipment-additional-info_eai_pgdata). This is an internal
+# infrastructure identifier only; the product is branded "TagSpec".
+name: equipment-additional-info
 
 services:
   database:

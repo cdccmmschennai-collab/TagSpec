@@ -1,7 +1,10 @@
-# Equipment Additional Information Tool
+# TagSpec — Equipment Attribute Workspace
 
 Internal multi-user web application for entering equipment-specific attributes
 tag-by-tag and exporting those values back into an uploaded Excel workbook.
+
+> **TagSpec** is the product name. Backend package names, API routes, database
+> tables and migrations retain their original identifiers for compatibility.
 
 - **Frontend:** React 19 + TypeScript + Vite + React Router + TanStack Query + Axios + React Hook Form + Zod
 - **Backend:** Python 3.12 + FastAPI + SQLAlchemy 2 + Alembic + Pydantic Settings + psycopg + openpyxl
@@ -179,7 +182,7 @@ alembic check                                           # models vs migration dr
 ## 7. End-to-end manual test flow
 
 1. Sign in at http://localhost:5173 with `ADM001`.
-2. **Equipment Master → Create** `BALL VALVE` (or use `--seed-ball-valve`). Open it and
+2. **Attribute Master → Create Equipment** `BALL VALVE` (or use `--seed-ball-valve`). Open it and
    add attributes `BODY, SEAT, STEM, BALL, OPERATING PRESSURE, OPERATING TEMPERATURE,
    STANDARD, FLANGE STANDARD`; reorder with ↑/↓ and reload to confirm order persists.
 3. **Jobs → Upload** `local-data/SAMPLE.xlsx` (headers `TAG NUMBER REV-1`,

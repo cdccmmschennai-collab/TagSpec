@@ -51,6 +51,7 @@ export interface WorkbookJob {
   project_code: string | null
   revision: string | null
   original_filename: string
+  stored_filename: string
   file_hash: string
   file_size: number
   sheet_name: string | null
@@ -59,6 +60,11 @@ export interface WorkbookJob {
   equipment_column_number: number | null
   additional_info_column_number: number | null
   status: string
+  uploaded_by: string | null
+  uploaded_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface ValidationSummary {

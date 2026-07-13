@@ -4,8 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { JobsPage } from './pages/JobsPage'
 import { JobWorkflowPage } from './pages/JobWorkflowPage'
-import { EquipmentMasterPage } from './pages/EquipmentMasterPage'
-import { EquipmentDetailPage } from './pages/EquipmentDetailPage'
+import { AttributeMasterPage } from './pages/AttributeMasterPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -21,21 +20,24 @@ export const router = createBrowserRouter([
       { path: 'jobs', element: <JobsPage /> },
       { path: 'jobs/:jobId', element: <JobWorkflowPage /> },
       {
-        path: 'equipment-master',
+        path: 'attribute-master',
         element: (
           <ProtectedRoute roles={['ADMIN']}>
-            <EquipmentMasterPage />
+            <AttributeMasterPage />
           </ProtectedRoute>
         ),
       },
       {
-        path: 'equipment-master/:equipmentId',
+        path: 'attribute-master/:equipmentId',
         element: (
           <ProtectedRoute roles={['ADMIN']}>
-            <EquipmentDetailPage />
+            <AttributeMasterPage />
           </ProtectedRoute>
         ),
       },
+      // Backwards-compatible redirects from the previous route names.
+      { path: 'equipment-master', element: <Navigate to="/attribute-master" replace /> },
+      { path: 'equipment-master/:equipmentId', element: <Navigate to="/attribute-master" replace /> },
     ],
   },
   { path: '*', element: <Navigate to="/jobs" replace /> },
