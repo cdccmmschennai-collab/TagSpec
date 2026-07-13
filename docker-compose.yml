@@ -1,0 +1,28 @@
+# Local development infrastructure for the Equipment Additional Information Tool.
+#
+# NOTE: This project's database intentionally uses host port 5544 so it does NOT
+# collide with any other Postgres already running on this machine (e.g. an
+# existing CMMS on 5433). Only the database is defined here for local dev; the
+# backend and frontend run on the host during development.
+
+services:
+  database:
+    image: postgres:16
+    container_name: eai_database
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-equipment_addl_info}
+      POSTGRES_USER: ${POSTGRES_USER:-eai_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local_only}
+    ports:
+      - "${POSTGRES_PORT:-5544}:5432"
+    volumes:
+      - eai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eai_app} -d ${POSTGRES_DB:-equipment_addl_info}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  eai_pgdata:
