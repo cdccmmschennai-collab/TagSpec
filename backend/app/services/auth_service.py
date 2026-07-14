@@ -104,3 +104,36 @@ def get_or_create_admin(
     db.commit()
     db.refresh(user)
     return user, True
+
+
+def reset_password(
+    db: Session,
+    employee_code: str,
+    password: str,
+    full_name: str | None = None,
+) -> ApplicationUser:
+    """Reset the password of an existing user, identified by employee_code.
+
+    Reuses the same :func:`hash_password` helper as login/user creation, so the
+    new hash verifies with :func:`verify_password`. The user's ID, role, active
+    state and audit relationships are left untouched. ``full_name`` is only
+    updated when a non-empty value is supplied. Raises ``NotFoundError`` when no
+    user matches, so callers never silently create one.
+    """
+    if not password:
+        raise ValidationAppError("Password is required", code="EMPTY_PASSWORD")
+    user = db.scalars(
+        select(ApplicationUser).where(
+            ApplicationUser.employee_code == employee_code.strip()
+        )
+    ).first()
+    if user is None:
+        raise NotFoundError(
+            f"No user with employee code '{employee_code.strip()}'"
+        )
+    user.password_hash = hash_password(password)
+    if full_name is not None and full_name.strip():
+        user.full_name = full_name.strip()
+    db.commit()
+    db.refresh(user)
+    return user
