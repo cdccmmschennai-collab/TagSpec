@@ -1,0 +1,19 @@
+# Keep the build context small and free of local/dev artifacts.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local env + generated data must never enter the image.
+.env
+.env.*
+storage/uploads/*
+storage/exports/*
+
+# Tests are not needed at runtime.
+tests/

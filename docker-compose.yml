@@ -13,25 +13,51 @@
 # data volume (equipment-additional-info_eai_pgdata). This is an internal
 # infrastructure identifier only; the product is branded "TagSpec".
 name: equipment-additional-info
-
 services:
   database:
     image: postgres:16
-    container_name: eai_database
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-equipment_addl_info}
-      POSTGRES_USER: ${POSTGRES_USER:-eai_app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local_only}
-    ports:
-      - "${POSTGRES_PORT:-5544}:5432"
+    container_name: tagspec-database
+    restart: unless-stopped
+    env_file:
+      - .env
     volumes:
-      - eai_pgdata:/var/lib/postgresql/data
+      - tagspec_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5544:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eai_app} -d ${POSTGRES_DB:-equipment_addl_info}"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U eai_app -d equipment_addl_info
       interval: 5s
       timeout: 5s
       retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: tagspec-backend
     restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://eai_app:${POSTGRES_PASSWORD}@database:5432/equipment_addl_info
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./storage:/app/storage
+    expose:
+      - "8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: tagspec-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
 
 volumes:
-  eai_pgdata:
+  tagspec_pgdata:

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-ssr/
+.vite/
+
+# Local env files must not enter the build (they would override VITE_API_URL).
+.env
+.env.local
+.env.*.local
+.env.development
