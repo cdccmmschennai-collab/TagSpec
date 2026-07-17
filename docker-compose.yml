@@ -41,6 +41,10 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+psycopg://eai_app:${POSTGRES_PASSWORD}@database:5432/equipment_addl_info
+    # Apply pending Alembic migrations before serving. The image's own CMD
+    # (see backend/Dockerfile) only starts uvicorn so the image stays usable
+    # standalone; compose is where migrations are wired in for this stack.
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     depends_on:
       database:
         condition: service_healthy
@@ -48,6 +52,15 @@ services:
       - ./storage:/app/storage
     expose:
       - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://localhost:8000/health")
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   frontend:
     build:
@@ -55,7 +68,8 @@ services:
     container_name: tagspec-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "8080:80"
 

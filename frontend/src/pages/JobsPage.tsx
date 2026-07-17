@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '../lib/api'
 import { useAuth } from '../auth/useAuth'
 import type { WorkbookJob } from '../lib/types'
 import { Button, Card, EmptyState, LoadingRow, PageHeader, SearchInput, Select, Tile } from '../components/ui/primitives'
+import { ConfirmDialog } from '../components/ui/Dialog'
+import { useToast } from '../components/ui/useToast'
 import { JobStatusBadge } from '../components/StatusBadge'
 import { UploadWorkbookDrawer } from '../components/UploadWorkbookDrawer'
-import { RefreshIcon, UploadIcon, SheetIcon, ArrowRightIcon, AlertIcon } from '../components/ui/icons'
+import { RefreshIcon, UploadIcon, SheetIcon, ArrowRightIcon, AlertIcon, TrashIcon } from '../components/ui/icons'
 import { formatDateTime } from '../lib/format'
 import { jobStatusMeta } from '../lib/status'
 
@@ -17,10 +19,27 @@ export function JobsPage() {
   const [uploadOpen, setUploadOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [deleteTarget, setDeleteTarget] = useState<WorkbookJob | null>(null)
+
+  const queryClient = useQueryClient()
+  const toast = useToast()
 
   const jobs = useQuery({
     queryKey: ['jobs'],
     queryFn: async () => (await api.get<WorkbookJob[]>('/workbooks')).data,
+  })
+
+  const deleteJob = useMutation({
+    mutationFn: async (job: WorkbookJob) => api.delete(`/workbooks/${job.id}`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      toast.success('Job deleted')
+      setDeleteTarget(null)
+    },
+    onError: (err) => {
+      toast.error('Delete failed', apiErrorMessage(err))
+      setDeleteTarget(null)
+    },
   })
 
   const all = useMemo(() => jobs.data ?? [], [jobs.data])
@@ -133,9 +152,20 @@ export function JobsPage() {
                     <td><JobStatusBadge status={j.status} /></td>
                     <td className="muted nowrap">{formatDateTime(j.updated_at)}</td>
                     <td>
-                      <Link className="btn btn-sm" to={`/jobs/${j.id}`}>
-                        Open Job <ArrowRightIcon size={14} />
-                      </Link>
+                      <div className="cell-actions">
+                        <Link className="btn btn-sm" to={`/jobs/${j.id}`}>
+                          Open Job <ArrowRightIcon size={14} />
+                        </Link>
+                        {canUpload && (
+                          <button
+                            className="btn btn-sm btn-icon btn-danger"
+                            onClick={() => setDeleteTarget(j)}
+                            aria-label="Delete job"
+                          >
+                            <TrashIcon size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -146,6 +176,17 @@ export function JobsPage() {
       </Card>
 
       <UploadWorkbookDrawer open={uploadOpen} onClose={() => setUploadOpen(false)} />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteJob.mutate(deleteTarget)}
+        title="Delete job"
+        message={<>Delete <b>{deleteTarget?.job_name}</b>? This permanently removes the workbook, its tag rows, and export history. This cannot be undone.</>}
+        confirmLabel="Delete"
+        destructive
+        loading={deleteJob.isPending}
+      />
     </div>
   )
 }
