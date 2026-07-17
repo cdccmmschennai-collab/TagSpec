@@ -21,7 +21,7 @@ services:
     env_file:
       - .env
     volumes:
-      - tagspec_pgdata:/var/lib/postgresql/data
+      - eai_pgdata:/var/lib/postgresql/data
     ports:
       - "5544:5432"
     healthcheck:
@@ -60,4 +60,4 @@ services:
       - "8080:80"
 
 volumes:
-  tagspec_pgdata:
+  eai_pgdata:
