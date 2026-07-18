@@ -17,7 +17,7 @@ interface Props {
 }
 
 // Live preview mirrors the backend formatter; the backend remains authoritative.
-function buildPreview(attributes: EquipmentAttribute[], values: Record<string, string>): string {
+export function buildPreview(attributes: EquipmentAttribute[], values: Record<string, string>): string {
   return [...attributes]
     .sort((a, b) => a.display_order - b.display_order)
     .map((a) => {

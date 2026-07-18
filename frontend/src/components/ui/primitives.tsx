@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode, SelectHTMLAttributes, InputHTMLAttributes } from 'react'
 import { useId } from 'react'
-import { SearchIcon } from './icons'
+import { ArrowLeftIcon, ArrowRightIcon, SearchIcon } from './icons'
 
 /* ------------------------------------------------------------ Button */
 type ButtonVariant = 'primary' | 'default' | 'ghost' | 'danger'
@@ -229,4 +229,72 @@ export function Tile({
     )
   }
   return <div className="tile">{content}</div>
+}
+
+/* --------------------------------------------------------- Pagination */
+export function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: {
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+}) {
+  if (totalPages <= 1) return null
+  const pages = paginationRange(currentPage, totalPages)
+
+  return (
+    <nav className="pagination" aria-label="Pagination">
+      <button
+        type="button"
+        className="page-btn nav"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage <= 1}
+        aria-label="Previous page"
+      >
+        <ArrowLeftIcon size={14} /> Prev
+      </button>
+      <div className="page-nums">
+        {pages.map((p, i) =>
+          p === 'ellipsis' ? (
+            <span key={`e${i}`} className="page-ellipsis">…</span>
+          ) : (
+            <button
+              key={p}
+              type="button"
+              className={`page-btn num ${p === currentPage ? 'active' : ''}`.trim()}
+              aria-current={p === currentPage ? 'page' : undefined}
+              onClick={() => onPageChange(p)}
+            >
+              {p}
+            </button>
+          ),
+        )}
+      </div>
+      <button
+        type="button"
+        className="page-btn nav"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage >= totalPages}
+        aria-label="Next page"
+      >
+        Next <ArrowRightIcon size={14} />
+      </button>
+    </nav>
+  )
+}
+
+/** Compact page-number window: first, last, current ±1, with ellipses for gaps. */
+function paginationRange(current: number, total: number): (number | 'ellipsis')[] {
+  const delta = 1
+  const range: (number | 'ellipsis')[] = []
+  const left = Math.max(2, current - delta)
+  const right = Math.min(total - 1, current + delta)
+  range.push(1)
+  if (left > 2) range.push('ellipsis')
+  for (let p = left; p <= right; p++) range.push(p)
+  if (right < total - 1) range.push('ellipsis')
+  if (total > 1) range.push(total)
+  return range
 }

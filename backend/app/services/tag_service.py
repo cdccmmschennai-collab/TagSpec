@@ -294,6 +294,51 @@ def complete_tag(
     return tag
 
 
+def edit_completed_tag(
+    db: Session,
+    tag_id: uuid.UUID,
+    user_id: uuid.UUID,
+    values: dict[str, str],
+    row_version: int,
+) -> ImportedTagRow:
+    """Supervisor correction of a tag's values after it has left the claim workflow.
+
+    Unlike complete_tag, this does not require the tag to be claimed by the
+    caller (completed tags have no owner) and leaves status/completed_by/
+    completed_at untouched — only the values and derived text change.
+    """
+    tag = db.scalars(
+        select(ImportedTagRow).where(ImportedTagRow.id == tag_id).with_for_update()
+    ).first()
+    if tag is None:
+        raise NotFoundError("Tag row not found")
+    if tag.status not in {
+        TagStatus.COMPLETED.value,
+        TagStatus.EXPORTED.value,
+        TagStatus.REVIEWED.value,
+    }:
+        raise ConflictError(
+            "Only completed, exported, or reviewed tags can be edited this way",
+            code="TAG_NOT_COMPLETED",
+        )
+    _check_version(tag, row_version)
+    if tag.equipment_template_id is None:
+        raise ValidationAppError("Tag has no equipment template", code="TEMPLATE_MISSING")
+
+    previous = tag.row_version
+    normalized = normalize_values(values)
+    specs = _attribute_specs(db, tag.equipment_template_id)
+    generated = build_additional_information(specs, normalized, require_all=True)
+
+    tag.attribute_values_json = normalized
+    tag.generated_additional_information = generated
+    tag.row_version = previous + 1
+    _record_history(db, tag, HistoryAction.EDITED, user_id, previous_version=previous)
+    db.commit()
+    db.refresh(tag)
+    return tag
+
+
 def release_tag(db: Session, tag_id: uuid.UUID, user_id: uuid.UUID) -> ImportedTagRow:
     """Owner releases a tag back to AVAILABLE, preserving any saved draft values."""
     tag = _owned_locked_tag(db, tag_id, user_id)

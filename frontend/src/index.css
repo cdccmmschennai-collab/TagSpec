@@ -286,6 +286,24 @@ textarea { resize: vertical; min-height: 72px; }
 }
 .tab.active .count { background: var(--primary-soft); color: var(--primary); }
 
+/* ------------------------------------------------------------ Pagination */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding-top: 0.25rem; }
+.page-nums { display: flex; align-items: center; gap: 0.25rem; }
+.page-btn {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  min-width: 32px; height: 32px; padding: 0 0.55rem;
+  border: 1px solid var(--border-strong); background: var(--panel);
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 0.85rem; font-weight: 550; color: var(--text-soft);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.page-btn:hover:not(:disabled) { background: var(--panel-hover); border-color: var(--muted); color: var(--text); }
+.page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.page-btn.num { justify-content: center; padding: 0; }
+.page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.page-btn.active:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+.page-ellipsis { color: var(--muted); font-size: 0.85rem; padding: 0 0.15rem; user-select: none; }
+
 /* -------------------------------------------------------- alerts/toast */
 .alert {
   display: flex; gap: 0.6rem; align-items: flex-start;

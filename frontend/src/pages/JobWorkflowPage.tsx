@@ -274,7 +274,7 @@ export function JobWorkflowPage() {
           )}
 
           {tab === 'completed' && isSupervisor && (
-            <ReadOnlyTagsTab mode="completed" tags={completed.data} isLoading={completed.isLoading} error={completed.error} />
+            <ReadOnlyTagsTab mode="completed" tags={completed.data} isLoading={completed.isLoading} error={completed.error} jobId={jobId} />
           )}
 
           {tab === 'existing' && isSupervisor && (

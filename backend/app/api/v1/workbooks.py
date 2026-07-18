@@ -229,6 +229,16 @@ def complete_tag(
     return tag_service.complete_tag(db, tag_id, user.id, payload.values, payload.row_version)
 
 
+@router.post("/tags/{tag_id}/edit", response_model=TagRowOut)
+def edit_completed_tag(
+    tag_id: uuid.UUID,
+    payload: SaveTagRequest,
+    user: ApplicationUser = Depends(require_supervisor),
+    db: Session = Depends(get_db),
+):
+    return tag_service.edit_completed_tag(db, tag_id, user.id, payload.values, payload.row_version)
+
+
 @router.post("/tags/{tag_id}/release", response_model=TagRowOut)
 def release_tag(
     tag_id: uuid.UUID,
